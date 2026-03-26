@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nedap PowerRouter",
+        "description": "Configure the HTTP receiver for the Nedap PowerRouter. Data can optionally be forwarded to the real Nedap server.",
+        "data": {
+          "port": "HTTP port",
+          "forward_enabled": "Forward data to real server",
+          "forward_ip": "Real IP of logging1.powerrouter.com"
+        },
+        "data_description": {
+          "port": "Port the HTTP server listens on (default: 8099). Must match your Docker port mapping.",
+          "forward_enabled": "When enabled, received data is additionally sent to the real Nedap server.",
+          "forward_ip": "The real IP address of logging1.powerrouter.com. Find with: dig @8.8.8.8 logging1.powerrouter.com +short"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Integration is already configured. Only one instance is allowed."
+    }
+  }
+}
