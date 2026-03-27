@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Nedap PowerRouter",
-        "description": "Configure the HTTP receiver for the Nedap PowerRouter. Data can optionally be forwarded to the real Nedap server.",
+        "description": "Configure the HTTP receiver for Nedap PowerRouters. Multiple PowerRouters in the same network are automatically discovered. Data can optionally be forwarded to the real Nedap server.",
         "data": {
           "port": "HTTP port",
           "forward_enabled": "Forward data to real server",
@@ -17,7 +17,7 @@
       }
     },
     "abort": {
-      "already_configured": "Integration is already configured. Only one instance is allowed."
+      "already_configured": "Integration is already configured. Only one instance is needed – multiple PowerRouters are automatically discovered."
     }
   }
 }

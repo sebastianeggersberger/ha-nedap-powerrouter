@@ -18,7 +18,7 @@
 
 # Deutsch
 
-Custom Integration für Home Assistant, die die HTTP-POST-Daten des Nedap PowerRouters lokal abfängt und als Sensoren bereitstellt – inklusive Kompatibilität mit dem HA Energie-Dashboard.
+Custom Integration für Home Assistant, die die HTTP-POST-Daten eines oder mehrerer Nedap PowerRouter lokal abfängt und als Sensoren bereitstellt – inklusive Kompatibilität mit dem HA Energie-Dashboard. Mehrere PowerRouter im selben Netzwerk werden automatisch anhand ihrer Seriennummer erkannt und als separate Geräte angelegt.
 
 <p align="center">
   <img src="images/ha-energy-dashboard.png" alt="Home Assistant Energie-Dashboard mit PowerRouter-Daten" width="800">
@@ -27,7 +27,7 @@ Custom Integration für Home Assistant, die die HTTP-POST-Daten des Nedap PowerR
 
 ## Funktionsweise
 
-Der PowerRouter sendet jede Minute einen HTTP-POST an `http://logging1.powerrouter.com/logs.json` (Port 80, unverschlüsselt). Durch eine DNS-Umleitung im lokalen Netzwerk wird dieser Traffic stattdessen an den Host weitergeleitet, auf dem Home Assistant läuft (oder an einen vorgeschalteten Reverse Proxy).
+Der PowerRouter sendet jede Minute einen HTTP-POST an `http://logging1.powerrouter.com/logs.json` (Port 80, unverschlüsselt). Durch eine DNS-Umleitung im lokalen Netzwerk wird dieser Traffic stattdessen an den Host weitergeleitet, auf dem Home Assistant läuft (oder an einen vorgeschalteten Reverse Proxy). Falls mehrere PowerRouter im Netzwerk sind, senden alle an denselben Endpunkt – die Integration erkennt sie automatisch anhand der mitgesendeten Seriennummer (`powerrouter_id`) und erstellt für jeden PowerRouter eigene Sensoren.
 
 ```
 ┌──────────────┐  HTTP POST /logs.json    ┌──────────────────────────────┐
@@ -254,12 +254,16 @@ In diesem Fall wird kein separater Reverse Proxy benötigt.
 3. Konfiguriere:
    - **Port**: `8099` (Standard – muss zum Docker-Mapping passen)
    - **Daten weiterleiten**: Optional – aktivieren, wenn die Daten auch an den echten Nedap-Server gehen sollen
-   - **Echte Server-IP**: Die echte IP von `logging1.powerrouter.com` (ermitteln mit `dig @8.8.8.8 logging1.powerrouter.com +short`)
+   - **Echte Server-IP**: Die echte IP von `logging1.powerrouter.com` (ermitteln mit `dig @8.8.8.8 logging1.powerrouter.com +short`). Bekannte IPs: `144.2.168.138`, `144.2.168.202`, `144.2.168.10`, `144.2.168.74`
 4. Bestätigen
 
 ### Schritt 4: Warten auf Daten
 
-Nach der Konfiguration sendet der PowerRouter innerhalb von ca. 1 Minute seine ersten Daten.
+Nach der Konfiguration sendet der PowerRouter innerhalb von ca. 1 Minute seine ersten Daten. Die Sensoren werden dynamisch erstellt, sobald der erste POST eines PowerRouters eintrifft.
+
+### Mehrere PowerRouter
+
+Falls du mehrere PowerRouter im selben Netzwerk betreibst: Es ist keine zusätzliche Konfiguration nötig. Alle PowerRouter senden an denselben DNS-Eintrag und damit an denselben HTTP-Server. Die Integration erkennt jeden PowerRouter automatisch anhand seiner Seriennummer und erstellt separate Geräte und Sensoren in Home Assistant. Im HA-Log erscheint bei Erkennung: `New PowerRouter discovered: <SERIAL> (total: N)`.
 
 ## Sensoren
 
@@ -354,7 +358,7 @@ Der PowerRouter sendet jede Minute einen HTTP-POST mit folgendem JSON-Format:
 
 # English
 
-Custom integration for Home Assistant that locally intercepts HTTP POST data from the Nedap PowerRouter and provides it as sensors – including compatibility with the HA Energy Dashboard.
+Custom integration for Home Assistant that locally intercepts HTTP POST data from one or more Nedap PowerRouters and provides it as sensors – including compatibility with the HA Energy Dashboard. **Multiple PowerRouters on the same network are automatically discovered by their serial number and created as separate devices.**
 
 <p align="center">
   <img src="images/ha-energy-dashboard.png" alt="Home Assistant Energy Dashboard with PowerRouter data" width="800">
@@ -363,7 +367,7 @@ Custom integration for Home Assistant that locally intercepts HTTP POST data fro
 
 ## How it works
 
-The PowerRouter sends an HTTP POST every minute to `http://logging1.powerrouter.com/logs.json` (port 80, unencrypted). By overriding DNS in your local network, this traffic is redirected to the host where Home Assistant runs (or to an upstream reverse proxy).
+The PowerRouter sends an HTTP POST every minute to `http://logging1.powerrouter.com/logs.json` (port 80, unencrypted). By overriding DNS in your local network, this traffic is redirected to the host where Home Assistant runs (or to an upstream reverse proxy). If multiple PowerRouters are on the network, they all send to the same endpoint – the integration automatically identifies each one by its serial number (`powerrouter_id`) and creates separate sensors for each device.
 
 ```
 ┌──────────────┐  HTTP POST /logs.json    ┌──────────────────────────────┐
@@ -372,7 +376,7 @@ The PowerRouter sends an HTTP POST every minute to `http://logging1.powerrouter.
 │  192.168.    │                          │                              │
 │  178.100)    │                          │  ┌────────────────────────┐  │
 └──────────────┘                          │  │ Reverse Proxy (opt.)   │  │
-       ↑                                  │  │ Port 80 → Port 8099   │  │
+       ↑                                  │  │ Port 80 → Port 8099    │  │
        │ DNS: logging1.powerrouter.com    │  └───────────┬────────────┘  │
        │       → 192.168.178.50           │              ↓               │
        │                                  │  ┌────────────────────────┐  │
@@ -583,12 +587,16 @@ No separate reverse proxy needed in this case.
 3. Configure:
    - **Port**: `8099` (default – must match your Docker port mapping)
    - **Forward data**: Optional – enable to also send data to the real Nedap server
-   - **Real server IP**: The actual IP of `logging1.powerrouter.com` (find with `dig @8.8.8.8 logging1.powerrouter.com +short`)
+   - **Real server IP**: The actual IP of `logging1.powerrouter.com` (find with `dig @8.8.8.8 logging1.powerrouter.com +short`). Known IPs: `144.2.168.138`, `144.2.168.202`, `144.2.168.10`, `144.2.168.74`
 4. Confirm
 
 ### Step 4: Wait for data
 
-After configuration, the PowerRouter will send its first data within approximately 1 minute.
+After configuration, the PowerRouter will send its first data within approximately 1 minute. Sensors are created dynamically when the first POST from each PowerRouter arrives.
+
+### Multiple PowerRouters
+
+If you have multiple PowerRouters on the same network: no additional configuration is needed. All PowerRouters send to the same DNS entry and thus to the same HTTP server. The integration automatically identifies each PowerRouter by its serial number and creates separate devices and sensors in Home Assistant. The HA log will show: `New PowerRouter discovered: <SERIAL> (total: N)`.
 
 ## Sensors
 

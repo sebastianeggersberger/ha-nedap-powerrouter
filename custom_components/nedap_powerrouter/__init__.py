@@ -1,10 +1,14 @@
 """The Nedap PowerRouter integration.
 
 This integration starts a local HTTP server (default port 8099) that receives
-the POST requests from the Nedap PowerRouter (which normally sends data to
-logging1.powerrouter.com). DNS must be redirected so that
+the POST requests from one or more Nedap PowerRouters (which normally send
+data to logging1.powerrouter.com). DNS must be redirected so that
 logging1.powerrouter.com resolves to the Home Assistant host IP. A reverse
 proxy (e.g. Synology DSM) forwards port 80 traffic to port 8099.
+
+Multiple PowerRouters are automatically discovered and separated by their
+unique serial number (powerrouter_id). Sensors are created dynamically
+when each device sends its first POST.
 
 Optionally, received data can be forwarded to the real
 logging1.powerrouter.com server so the Nedap portal stays up to date.
@@ -15,7 +19,6 @@ Protocol documented at: https://github.com/BenediktSeidl/prpd
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -51,21 +54,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     await server.start()
 
+    # Store data per config entry (not globally) for clean unload
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["server"] = server
-    hass.data[DOMAIN]["powerrouter_id"] = "unknown"
-
-    # Register a one-time callback to capture the powerrouter_id
-    # from the first received message.
-    def _capture_id(data: dict[str, Any]) -> None:
-        header = data.get("header", {})
-        pr_id = header.get("powerrouter_id", "unknown")
-        if pr_id != "unknown":
-            hass.data[DOMAIN]["powerrouter_id"] = pr_id
-            _LOGGER.info("PowerRouter identified: %s", pr_id)
-            server.remove_callback(_capture_id)
-
-    server.register_callback(_capture_id)
+    hass.data[DOMAIN][entry.entry_id] = {
+        "server": server,
+    }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -74,13 +67,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    server: PowerRouterHTTPServer | None = hass.data[DOMAIN].get("server")
+    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    server: PowerRouterHTTPServer | None = entry_data.get("server")
     if server:
         await server.stop()
 
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        entry, PLATFORMS
+    )
 
     if unload_ok:
-        hass.data.pop(DOMAIN, None)
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        if not hass.data[DOMAIN]:
+            hass.data.pop(DOMAIN, None)
 
     return unload_ok

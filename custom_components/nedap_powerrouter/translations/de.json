@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Nedap PowerRouter",
-        "description": "Konfiguriere den HTTP-Empfänger für den Nedap PowerRouter. Die Daten können optional zusätzlich an den echten Nedap-Server weitergeleitet werden.",
+        "description": "Konfiguriere den HTTP-Empfänger für Nedap PowerRouter. Mehrere PowerRouter im selben Netzwerk werden automatisch erkannt. Die Daten können optional zusätzlich an den echten Nedap-Server weitergeleitet werden.",
         "data": {
           "port": "HTTP-Port",
           "forward_enabled": "Daten an echten Server weiterleiten",
@@ -17,7 +17,7 @@
       }
     },
     "abort": {
-      "already_configured": "Die Integration ist bereits konfiguriert. Es kann nur eine Instanz verwendet werden."
+      "already_configured": "Die Integration ist bereits konfiguriert. Es wird nur eine Instanz benötigt – mehrere PowerRouter werden automatisch erkannt."
     }
   }
 }

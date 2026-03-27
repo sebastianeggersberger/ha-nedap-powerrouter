@@ -7,9 +7,10 @@ Receive real-time data from your Nedap PowerRouter directly in Home Assistant â€
 ### Features
 
 - Receives PowerRouter data via local HTTP (DNS redirect)
+- **Multi-device support**: Multiple PowerRouters automatically discovered by serial number
 - Full Energy Dashboard compatibility (grid import/export, solar, battery)
 - Optional forwarding to the real Nedap server
-- 50+ sensors across all PowerRouter modules
+- 50+ sensors per PowerRouter across all modules
 
 ### How it works
 

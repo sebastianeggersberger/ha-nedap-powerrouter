@@ -18,9 +18,11 @@ _LOGGER = logging.getLogger(__name__)
 class PowerRouterHTTPServer:
     """HTTP server that mimics logging1.powerrouter.com.
 
-    Receives JSON POST data from the Nedap PowerRouter on /logs.json
-    and distributes it via registered callbacks. Optionally forwards
-    the raw data to the real Nedap server.
+    Receives JSON POST data from one or more Nedap PowerRouters on /logs.json
+    and distributes it via registered callbacks. Each PowerRouter is identified
+    by its unique ``powerrouter_id`` in the JSON header.
+
+    Optionally forwards the raw data to the real Nedap server.
     """
 
     def __init__(
@@ -38,28 +40,88 @@ class PowerRouterHTTPServer:
         self._app.router.add_route("*", "/{path:.*}", self._handle_catchall)
         self._runner: web.AppRunner | None = None
         self._session: aiohttp.ClientSession | None = None
+
+        # General callbacks – receive ALL data regardless of device
         self._callbacks: list[Callable[[dict[str, Any]], None]] = []
-        self._last_data: dict[str, Any] | None = None
+
+        # Per-device callbacks – only receive data for a specific powerrouter_id
+        self._device_callbacks: dict[
+            str, list[Callable[[dict[str, Any]], None]]
+        ] = {}
+
+        # Callback fired when a previously unseen powerrouter_id is discovered
+        self._discovery_callbacks: list[Callable[[str], None]] = []
+
+        # Set of known powerrouter_ids
+        self._known_devices: set[str] = set()
 
     @property
-    def last_data(self) -> dict[str, Any] | None:
-        """Return the last received data."""
-        return self._last_data
+    def known_devices(self) -> set[str]:
+        """Return the set of discovered powerrouter_ids."""
+        return self._known_devices.copy()
+
+    # ── General callbacks (all data) ──────────────────────────────
 
     def register_callback(
         self, callback: Callable[[dict[str, Any]], None]
     ) -> None:
-        """Register a callback for new data."""
+        """Register a callback that receives ALL incoming data."""
         self._callbacks.append(callback)
 
     def remove_callback(
         self, callback: Callable[[dict[str, Any]], None]
     ) -> None:
-        """Remove a registered callback."""
+        """Remove a general callback."""
         try:
             self._callbacks.remove(callback)
         except ValueError:
             _LOGGER.debug("Callback not found for removal, ignoring")
+
+    # ── Per-device callbacks ──────────────────────────────────────
+
+    def register_device_callback(
+        self,
+        powerrouter_id: str,
+        callback: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Register a callback for a specific powerrouter_id."""
+        self._device_callbacks.setdefault(powerrouter_id, []).append(callback)
+
+    def remove_device_callback(
+        self,
+        powerrouter_id: str,
+        callback: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Remove a per-device callback."""
+        cbs = self._device_callbacks.get(powerrouter_id, [])
+        try:
+            cbs.remove(callback)
+        except ValueError:
+            _LOGGER.debug(
+                "Device callback not found for %s, ignoring", powerrouter_id
+            )
+
+    # ── Discovery callbacks ───────────────────────────────────────
+
+    def register_discovery_callback(
+        self, callback: Callable[[str], None]
+    ) -> None:
+        """Register a callback fired when a new powerrouter_id is seen.
+
+        The callback receives the powerrouter_id string as its argument.
+        """
+        self._discovery_callbacks.append(callback)
+
+    def remove_discovery_callback(
+        self, callback: Callable[[str], None]
+    ) -> None:
+        """Remove a discovery callback."""
+        try:
+            self._discovery_callbacks.remove(callback)
+        except ValueError:
+            pass
+
+    # ── Server lifecycle ──────────────────────────────────────────
 
     async def start(self) -> None:
         """Start the HTTP server."""
@@ -91,12 +153,10 @@ class PowerRouterHTTPServer:
             await self._runner.cleanup()
             _LOGGER.info("PowerRouter HTTP server stopped")
 
-    async def _forward_to_real_server(self, raw_body: bytes) -> None:
-        """Forward the raw POST body to the real logging1.powerrouter.com.
+    # ── Request handlers ──────────────────────────────────────────
 
-        This runs as a fire-and-forget task so it does not delay the
-        response back to the PowerRouter.
-        """
+    async def _forward_to_real_server(self, raw_body: bytes) -> None:
+        """Forward the raw POST body to the real logging1.powerrouter.com."""
         if not self._session or not self._forward_ip:
             return
 
@@ -119,46 +179,56 @@ class PowerRouterHTTPServer:
             _LOGGER.warning("Forward to %s failed", url, exc_info=True)
 
     async def _handle_logs(self, request: web.Request) -> web.Response:
-        """Handle POST /logs.json from the PowerRouter.
-
-        The PowerRouter sends JSON with this structure:
-        {
-          "header": {
-            "powerrouter_id": "...",
-            "time_send": "...",
-            "version": 3,
-            "period": 60
-          },
-          "module_statuses": [
-            {
-              "module_id": 16,
-              "status": ...,
-              "param_0": ...,
-              ...
-            }
-          ]
-        }
-        """
+        """Handle POST /logs.json from one or more PowerRouters."""
         try:
             raw_body = await request.read()
             data: dict[str, Any] = json.loads(raw_body)
+
+            # Extract powerrouter_id from header
+            header = data.get("header", {})
+            pr_id: str = header.get("powerrouter_id", "unknown")
+
             _LOGGER.debug(
-                "Received PowerRouter data: %s",
+                "Received data from PowerRouter %s: %s",
+                pr_id,
                 json.dumps(data, indent=2),
             )
-            self._last_data = data
 
+            # Discover new devices
+            if pr_id != "unknown" and pr_id not in self._known_devices:
+                self._known_devices.add(pr_id)
+                _LOGGER.info(
+                    "New PowerRouter discovered: %s (total: %d)",
+                    pr_id,
+                    len(self._known_devices),
+                )
+                for cb in self._discovery_callbacks:
+                    try:
+                        cb(pr_id)
+                    except Exception:
+                        _LOGGER.exception("Error in discovery callback")
+
+            # Fire general callbacks (all data)
             for cb in self._callbacks:
                 try:
                     cb(data)
                 except Exception:
                     _LOGGER.exception("Error in data callback")
 
+            # Fire per-device callbacks
+            if pr_id in self._device_callbacks:
+                for cb in self._device_callbacks[pr_id]:
+                    try:
+                        cb(data)
+                    except Exception:
+                        _LOGGER.exception(
+                            "Error in device callback for %s", pr_id
+                        )
+
             # Forward to real server (fire-and-forget, non-blocking)
             if self._forward_enabled and self._session:
                 asyncio.create_task(self._forward_to_real_server(raw_body))
 
-            # Return 200 OK so the PowerRouter is happy
             return web.json_response({"status": "ok"})
 
         except json.JSONDecodeError:
@@ -169,11 +239,7 @@ class PowerRouterHTTPServer:
             return web.Response(status=500, text="Internal error")
 
     async def _handle_catchall(self, request: web.Request) -> web.Response:
-        """Handle all other requests.
-
-        The PowerRouter may send other requests (e.g. status checks).
-        We just respond 200 OK to keep it happy.
-        """
+        """Handle all other requests."""
         body = await request.read()
         _LOGGER.debug(
             "PowerRouter catchall: %s %s (body: %s bytes)",
