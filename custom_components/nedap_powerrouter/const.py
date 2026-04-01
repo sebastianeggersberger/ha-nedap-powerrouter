@@ -37,13 +37,13 @@ MODULE_BATTERY = 136       # Battery module (if present)
 #   - Currents: /100 → A
 #   - Power: /1 → W (already in W, can be negative)
 #   - Energy: /1000 → kWh (raw is in Wh)
-#   - Frequency: /1000 → Hz
+#   - Frequency: /100 → Hz
 #   - Temperature: /10 → °C
 # ──────────────────────────────────────────────────────────────
 
 PARAM_MAP = {
     MODULE_PLATFORM: {
-        "param_0": ("platform_frequency", "Platform Frequenz", "Hz", "frequency", "measurement", 1000),
+        "param_0": ("platform_frequency", "Platform Frequenz", "Hz", "frequency", "measurement", 100),
         "param_1": ("platform_grid_voltage", "Platform Netzspannung", "V", "voltage", "measurement", 100),
         "param_2": ("platform_temperature", "Platform Temperatur", "°C", "temperature", "measurement", 10),
         "param_3": ("grid_power_total", "Netzleistung Gesamt", "W", "power", "measurement", 1),
@@ -51,7 +51,7 @@ PARAM_MAP = {
         "param_5": ("platform_energy_consumed", "Platform Energie Verbraucht", "kWh", "energy", "total_increasing", 1000),
     },
     MODULE_DCAC: {
-        "param_0": ("dcac_frequency", "Wechselrichter Frequenz", "Hz", "frequency", "measurement", 1000),
+        "param_0": ("dcac_frequency", "Wechselrichter Frequenz", "Hz", "frequency", "measurement", 100),
         "param_1": ("dcac_grid_voltage", "Wechselrichter Netzspannung", "V", "voltage", "measurement", 100),
         "param_2": ("dcac_grid_power", "Wechselrichter Netzleistung", "W", "power", "measurement", 1),
         "param_3": ("dcac_energy_produced", "Wechselrichter Energie Erzeugt", "kWh", "energy", "total_increasing", 1000),
@@ -97,9 +97,9 @@ PARAM_MAP = {
         "param_3": ("battery_energy_charged", "Batterie Geladen", "kWh", "energy", "total_increasing", 1000),
         "param_4": ("battery_energy_discharged", "Batterie Entladen", "kWh", "energy", "total_increasing", 1000),
         "param_5": ("battery_soc", "Batterie Ladestand", "%", "battery", "measurement", 10),
-        "param_6": ("battery_soc_max", "Batterie Max SoC", "%", None, "measurement", 10),
+        "param_6": ("battery_soc_max", "Batterie Max SoC", "%", None, "measurement", 10),  # May not be present on all models (e.g. PR50SB-SU/S240)
         "param_7": ("battery_temperature", "Batterie Temperatur", "°C", "temperature", "measurement", 10),
-        "param_8": ("battery_cycles", "Batterie Zyklen", None, None, "total_increasing", 1),
+        "param_8": ("battery_module_temperature", "Batterie Modultemperatur", "°C", "temperature", "measurement", 10),  # Was incorrectly mapped as "battery_cycles" in v1.1.0
     },
 }
 
