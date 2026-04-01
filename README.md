@@ -288,7 +288,7 @@ Falls du mehrere PowerRouter im selben Netzwerk betreibst: Es ist keine zusätzl
 | **Wechselrichter (9)** | DC-AC Konverter: Frequenz, Spannung, Leistung, Energie, Temperatur |
 | **Netz/EM24 (11)** | 3 Phasen (L1/L2/L3): Spannung, Strom, Leistung, Energie |
 | **Solar (12)** | 2 Eingänge: Spannung, Strom, Leistung, Energie, Temperatur |
-| **Batterie (136)** | Spannung, Strom, Leistung, Ladestand, Zyklen (falls vorhanden) |
+| **Batterie (136)** | Spannung, Strom, Leistung, Ladestand, Temperatur, Modultemperatur |
 
 ### Energie-Dashboard konfigurieren
 
@@ -331,6 +331,17 @@ logger:
 ```
 
 **Sensoren zeigen "Unknown":** Normal – Sensoren werden erst aktualisiert, wenn der erste POST vom PowerRouter eintrifft (ca. 1–2 Minuten).
+
+## Bekannte Modellunterschiede
+
+Die Parameter-Zuordnung wurde hauptsächlich mit dem **PR50SBi-BS** getestet. Community-Feedback zeigt, dass sich einige Parameter je nach Modell unterscheiden können:
+
+| Parameter | PR50SBi-BS | PR50SB-SU/S240 |
+|-----------|-----------|----------------|
+| Batterie param_6 | Max SoC (%) | Unbekannt / nicht vorhanden |
+| Batterie param_8 | Modultemperatur (°C) | Modultemperatur (°C) |
+
+Falls bei dir ein Sensor unplausible Werte anzeigt, aktiviere bitte das Debug-Logging und erstelle ein [Issue auf GitHub](https://github.com/sebastianeggersberger/ha-nedap-powerrouter/issues) mit den Rohdaten.
 
 ## Protokoll-Referenz
 
@@ -621,7 +632,7 @@ If you have multiple PowerRouters on the same network: no additional configurati
 | **Inverter (9)** | DC-AC converter: frequency, voltage, power, energy, temperature |
 | **Grid/EM24 (11)** | 3 phases (L1/L2/L3): voltage, current, power, energy |
 | **Solar (12)** | 2 inputs: voltage, current, power, energy, temperature |
-| **Battery (136)** | Voltage, current, power, state of charge, cycles (if present) |
+| **Battery (136)** | Voltage, current, power, state of charge, temperature, module temperature |
 
 ### Energy Dashboard setup
 
@@ -664,6 +675,17 @@ logger:
 ```
 
 **Sensors show "Unknown":** This is normal – sensors update when the first POST arrives from the PowerRouter (approx. 1–2 minutes).
+
+## Known model differences
+
+Parameter mapping has been primarily tested with the **PR50SBi-BS**. Community feedback shows that some parameters may differ between models:
+
+| Parameter | PR50SBi-BS | PR50SB-SU/S240 |
+|-----------|-----------|----------------|
+| Battery param_6 | Max SoC (%) | Unknown / not present |
+| Battery param_8 | Module temperature (°C) | Module temperature (°C) |
+
+If a sensor shows implausible values, please enable debug logging and open an [issue on GitHub](https://github.com/sebastianeggersberger/ha-nedap-powerrouter/issues) with the raw data.
 
 ---
 
