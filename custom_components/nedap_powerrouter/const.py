@@ -100,6 +100,10 @@ PARAM_MAP = {
         "param_6": ("battery_soc_max", "Batterie Max SoC", "%", None, "measurement", 10),  # May not be present on all models (e.g. PR50SB-SU/S240)
         "param_7": ("battery_temperature", "Batterie Temperatur", "°C", "temperature", "measurement", 10),
         "param_8": ("battery_module_temperature", "Batterie Modultemperatur", "°C", "temperature", "measurement", 10),  # Was incorrectly mapped as "battery_cycles" in v1.1.0
+        "param_9": ("battery_charge_voltage", "Batterie Ladespannung", "V", "voltage", "measurement", 100),
+        "param_10": ("battery_charge_current", "Batterie Ladestrom", "A", "current", "measurement", 100),
+        "param_11": ("battery_discharge_voltage", "Batterie Entladespannung", "V", "voltage", "measurement", 100),
+        "param_12": ("battery_discharge_current", "Batterie Entladestrom", "A", "current", "measurement", 100),
     },
 }
 
