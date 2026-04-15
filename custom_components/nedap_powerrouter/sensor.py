@@ -125,6 +125,8 @@ def _create_sensors_for_device(
     # Computed sensors for the Energy Dashboard
     sensors.append(GridImportSensor(server, powerrouter_id))
     sensors.append(GridExportSensor(server, powerrouter_id))
+    sensors.append(BatteryChargeSensor(server, powerrouter_id))
+    sensors.append(BatteryDischargeSensor(server, powerrouter_id))
 
     return sensors
 
@@ -317,3 +319,32 @@ class GridExportSensor(SensorEntity):
                     self._attr_native_value = round(raw / 1000, 3)
                     self.async_write_ha_state()
                 break
+
+class BatteryChargeSensor(SensorEntity):
+    """Computed sensor: Battery charge (Netzeinspeisung).
+
+    For the HA Energy Dashboard "Battery return".
+    Uses platform_energy_produced (module 16, param_4)."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_name = "Batterie Geladen"
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:batterie-arrow-up"
+
+class BatteryDischargeSensor(SensorEntity):
+    """Computed sensor: Battery discharge (Netzeinspeisung).
+
+    For the HA Energy Dashboard "Battery consumption".
+    Uses platform_energy_produced (module 16, param_4).
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_name = "Batterie Entladen"
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:batterie-arrow-down"
