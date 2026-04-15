@@ -324,7 +324,7 @@ class BatteryChargeSensor(SensorEntity):
     """Computed sensor: Battery charge (Netzeinspeisung).
 
     For the HA Energy Dashboard "Battery return".
-    Uses platform_energy_produced (module 16, param_4)."""
+    Uses platform_energy_produced (module 136, param_3)."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
