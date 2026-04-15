@@ -375,10 +375,10 @@ class BatteryChargeSensor(SensorEntity):
                 break
 
 class BatteryDischargeSensor(SensorEntity):
-    """Computed sensor: Battery discharge (Netzeinspeisung).
+    """Computed sensor: Battery discharge.
 
     For the HA Energy Dashboard "Battery consumption".
-    Uses platform_energy_produced (module 16, param_4).
+    Uses platform_energy_produced (module 136, param_4).
     """
 
     _attr_has_entity_name = True
