@@ -388,3 +388,43 @@ class BatteryDischargeSensor(SensorEntity):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_icon = "mdi:batterie-arrow-down"
+
+    def __init__(self, server: Any, powerrouter_id: str) -> None:
+        """Initialise."""
+        self._server = server
+        self._powerrouter_id = powerrouter_id
+        self._attr_unique_id = f"nedap_pr_{powerrouter_id}_battery_discharge"
+        self._attr_native_value: float | None = None
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._powerrouter_id)},
+            name=f"PowerRouter ({self._powerrouter_id})",
+            manufacturer="Nedap",
+            model="PowerRouter",
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """Register per-device callback."""
+        self._server.register_device_callback(
+            self._powerrouter_id, self._handle_data
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Remove per-device callback."""
+        self._server.remove_device_callback(
+            self._powerrouter_id, self._handle_data
+        )
+
+    @callback
+    def _handle_data(self, data: dict[str, Any]) -> None:
+        """Handle data — extract battery discharged energy."""
+        for module in data.get("module_statuses", []):
+            if module.get("module_id") == 136:
+                raw = module.get("param_4")
+                if raw is not None:
+                    self._attr_native_value = round(raw / 1000, 3)
+                    self.async_write_ha_state()
+                break
