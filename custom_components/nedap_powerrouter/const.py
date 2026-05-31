@@ -100,10 +100,10 @@ PARAM_MAP = {
         "param_6": ("battery_soc_max", "Batterie Wattstunden", "Wh", "kWh", "measurement", 1000),  # Vermutlich verfügbare Energie bis zum Entlademinimum in Wh
         "param_7": ("battery_temperature", "Batterie Temperatur", "°C", "temperature", "measurement", 10),
         "param_8": ("battery_module_temperature", "Batterie Modultemperatur", "°C", "temperature", "measurement", 10),  # Was incorrectly mapped as "battery_cycles" in v1.1.0
-        "param_9": ("battery_charge_voltage", "Batterie Ladespannung", "V", "voltage", "measurement", 100),
-        "param_10": ("battery_charge_current", "Batterie Ladestrom", "A", "current", "measurement", 100),
-        "param_11": ("battery_discharge_voltage", "Batterie Entladespannung", "V", "voltage", "measurement", 100),
-        "param_12": ("battery_discharge_current", "Batterie Entladestrom", "A", "current", "measurement", 100),
+        "param_9": ("battery_charge_voltage", "Batterie Ladespannung", "V", "voltage", "measurement", 100), #changes from 27V up to 29V
+        "param_10": ("battery_charge_current", "Batterie Ladestrom", "A", "current", "measurement", 100), #no change on a daily basis, stays at 134,80A
+        "param_11": ("battery_discharge_voltage", "Batterie Entladespannung", "V", "voltage", "measurement", 100), #no change on a daily basis, stays at 23V
+        "param_12": ("battery_discharge_current", "Batterie Entladestrom", "A", "current", "measurement", 100), #no change on a daily basis, stays at 101,10A
     },
 }
 
