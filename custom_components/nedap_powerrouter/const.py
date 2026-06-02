@@ -17,6 +17,22 @@ FORWARD_PATH = "/logs.json"
 FORWARD_TIMEOUT_SECONDS = 10
 
 # ──────────────────────────────────────────────────────────────
+# Response sent back to the PowerRouter after each POST.
+#
+# The real logging1.powerrouter.com server replies to every POST
+# with HTTP 201 and a JSON body that carries a "next-log-level"
+# directive. This level controls how the PowerRouter logs; level 2
+# is the normal/full mode the device uses while it considers itself
+# online. If the device never receives this directive (e.g. because
+# the local receiver only returns a bare {"status": "ok"}), it
+# eventually falls back to a reduced mode and stops logging whenever
+# the converter is idle – for example overnight, when there is no PV
+# yield. The device also derives its clock from the HTTP Date header
+# of this response.
+# ──────────────────────────────────────────────────────────────
+NEXT_LOG_LEVEL = 2
+
+# ──────────────────────────────────────────────────────────────
 # Module IDs as sent by the PowerRouter in the JSON POST body.
 # Source: Photovoltaikforum / prpd / powerinterface projects.
 # ──────────────────────────────────────────────────────────────

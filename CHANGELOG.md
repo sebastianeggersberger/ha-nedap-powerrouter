@@ -2,6 +2,17 @@
 
 All notable changes to the Nedap PowerRouter Home Assistant integration.
 
+## [1.2.1] - 2026-07-02
+
+### Fixed
+
+- **Correct server response to the PowerRouter:** The integration now replies to POSTs exactly like the real `logging1.powerrouter.com` server – HTTP `201 Created` with the JSON body `{"next-log-level":2,"status":"ok"}` (previously `200 OK` with `{"status":"ok"}`). The PowerRouter evaluates this response: without the `next-log-level` directive it treats itself as "not connected", no longer syncs its clock, and drops to a reduced logging mode in which it sends no data while the converter is idle – for example overnight, when there is no PV yield. With the correct response the device logs around the clock again, shows "internet connection Ok" on its display, and sets its clock from the HTTP `Date` header. This affects both `/logs.json` and `/events.json` (the latter handled by the catch-all route).
+
+### Notes
+
+- Keep the clock of your Home Assistant host correct (NTP) – the PowerRouter takes its time from the `Date` header of the response.
+- The response format was determined by comparing against the original Nedap server while it is still reachable.
+
 ## [1.2.0] - 2026-07-02
 
 ### Fixed
