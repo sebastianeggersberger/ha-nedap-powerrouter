@@ -96,11 +96,24 @@ PARAM_MAP = {
         "param_2": ("battery_power", "Batterie Leistung", "W", "power", "measurement", 1),
         "param_3": ("battery_energy_charged", "Batterie Geladen", "kWh", "energy", "total_increasing", 1000),
         "param_4": ("battery_energy_discharged", "Batterie Entladen", "kWh", "energy", "total_increasing", 1000),
-        "param_5": ("battery_soc", "Batterie Ladestand", "%", "battery", "measurement", 10),
-        "param_6": ("battery_soc_max", "Batterie Max SoC", "%", None, "measurement", 10),  # May not be present on all models (e.g. PR50SB-SU/S240)
+        "param_5": ("battery_soc", "Batterie Ladestand", "%", "battery", "measurement", 1),  # Divisor 10→1 per issue #3 / PR #5 (verified on PR50SB-BS: raw 100 = 100 %)
+        "param_6": ("battery_soc_max", "Batterie Verfügbare Energie", "Wh", "energy_storage", "measurement", 1),  # Presumably usable energy down to discharge floor in Wh (PR #5); was misinterpreted as "Max SoC". May not be present on all models (e.g. PR50SB-SU/S240)
         "param_7": ("battery_temperature", "Batterie Temperatur", "°C", "temperature", "measurement", 10),
         "param_8": ("battery_module_temperature", "Batterie Modultemperatur", "°C", "temperature", "measurement", 10),  # Was incorrectly mapped as "battery_cycles" in v1.1.0
+        "param_9": ("battery_charge_voltage", "Batterie Ladespannung", "V", "voltage", "measurement", 100),  # Charge limit, ~27–29 V (PR #5)
+        "param_10": ("battery_charge_current", "Batterie Ladestrom", "A", "current", "measurement", 100),  # Charge current limit, mostly static (PR #5)
+        "param_11": ("battery_discharge_voltage", "Batterie Entladespannung", "V", "voltage", "measurement", 100),  # Discharge voltage floor, mostly static (PR #5)
+        "param_12": ("battery_discharge_current", "Batterie Entladestrom", "A", "current", "measurement", 100),  # Discharge current limit, mostly static (PR #5)
     },
+}
+
+# Sensors that represent (mostly static) configuration limits rather than
+# live measurements → shown under "Diagnose" in the device page.
+DIAGNOSTIC_SENSORS: set[str] = {
+    "battery_charge_voltage",
+    "battery_charge_current",
+    "battery_discharge_voltage",
+    "battery_discharge_current",
 }
 
 # ──────────────────────────────────────────────────────────────

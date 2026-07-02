@@ -2,6 +2,23 @@
 
 All notable changes to the Nedap PowerRouter Home Assistant integration.
 
+## [1.2.0] - 2026-07-02
+
+### Fixed
+
+- **Spurious zero values in energy counters:** The PowerRouter occasionally sends a sporadic `0` for lifetime energy counters (e.g. `solar_energy_total`), which Home Assistant interpreted as a meter reset and corrupted the long-term statistics for the whole day. All `total_increasing` sensors (incl. Netzbezug/Netzeinspeisung) are now protected by a plausibility filter: values below the last accepted reading are discarded and logged as a warning. A genuine meter reset is accepted after 3 consecutive consistent readings below the old level.
+- **Battery SOC scaling:** Divisor changed from /10 to /1 – `battery_soc` now shows 100 % instead of 10.0 (#3, thanks @WhatGravity). If your model now shows 10× too much, please report it – the scaling may be model-specific.
+
+### Changed
+
+- **`battery_soc_max` (param_6) reinterpreted:** The parameter is presumably the available energy down to the discharge floor, not a "Max SoC". The sensor is now called "Batterie Verfügbare Energie" (Wh, `device_class: energy_storage`, divisor /1). Entity ID/unique ID remain unchanged (from PR #5, thanks @WhatGravity).
+
+### Added
+
+- **New battery diagnostic sensors** (param_9–12, from PR #5, thanks @WhatGravity): Ladespannung (V), Ladestrom (A), Entladespannung (V), Entladestrom (A) – mostly static charge/discharge limits, shown under "Diagnose" on the device page.
+- **README – FRITZ!Box Option B:** Redirect via the FRITZ!Box upstream DNS (Internet → Zugangsdaten → DNS-Server), incl. note on PowerRouter DNS caching (#2, thanks @WhatGravity).
+- **README – Variante D:** DNS override and port forwarding without Pi-hole/AdGuard using a dedicated Raspberry Pi with dnsmasq + iptables, e.g. for QNAP setups without a port-80 reverse proxy (#6, thanks @Timsche2210).
+
 ## [1.1.1] - 2026-04-01
 
 ### Fixed
