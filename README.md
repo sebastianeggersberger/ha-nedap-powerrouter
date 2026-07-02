@@ -57,7 +57,8 @@ Der PowerRouter sendet jede Minute einen HTTP-POST an `http://logging1.powerrout
 2. Per **DNS-Override** in deinem Router wird `logging1.powerrouter.com` auf die IP des Ziel-Hosts umgeleitet – das ist die Maschine, die Port 80 entgegennimmt. In vielen Setups (z.B. Synology NAS mit HA in Docker) ist das derselbe Host. Falls HA auf einem separaten Gerät läuft (z.B. Raspberry Pi) und Port 80 dort frei ist, zeigt der DNS direkt auf die HA-IP.
 3. Falls Port 80 auf dem Ziel-Host bereits belegt ist (z.B. durch DSM auf einer Synology), nimmt ein **Reverse Proxy** den Request auf Port 80 an und leitet ihn an Home Assistant auf Port 8099 weiter.
 4. Die Integration empfängt den POST und stellt die Daten als Sensoren bereit.
-5. **Optional:** Die Daten werden zusätzlich an den echten Nedap-Server weitergeleitet, damit das Portal weiterhin funktioniert (solange es verfügbar ist).
+5. Die Integration antwortet dem PowerRouter exakt wie der echte Server (HTTP `201` mit dem Direktiv `next-log-level`). Das Gerät wertet diese Antwort aus: Nur wenn es sie erhält, bleibt es im vollen Logging-Modus (und sendet auch nachts ohne PV-Ertrag), zeigt im Display „Internetverbindung Ok" an und stellt seine Uhr über den HTTP-`Date`-Header.
+6. **Optional:** Die Daten werden zusätzlich an den echten Nedap-Server weitergeleitet, damit das Portal weiterhin funktioniert (solange es verfügbar ist).
 
 ## Voraussetzungen
 
@@ -356,7 +357,7 @@ nslookup logging1.powerrouter.com
 **Reverse Proxy testen:**
 ```bash
 curl -v -H "Host: logging1.powerrouter.com" http://192.168.178.50/logs.json
-# Sollte HTTP 200 zurückgeben
+# Sollte HTTP 201 zurückgeben
 ```
 
 **Port erreichbar?**
@@ -375,6 +376,8 @@ logger:
 ```
 
 **Sensoren zeigen "Unknown":** Normal – Sensoren werden erst aktualisiert, wenn der erste POST vom PowerRouter eintrifft (ca. 1–2 Minuten).
+
+**PowerRouter zeigt „nicht verbunden" oder sendet nachts keine Daten:** Stelle sicher, dass du mindestens Version 1.1.2 nutzt. Ältere Versionen antworteten ohne das `next-log-level`-Direktiv, woraufhin das Gerät in einen reduzierten Modus fiel und bei fehlendem PV-Ertrag (nachts) das Logging einstellte. Prüfe zusätzlich, dass die Uhr deines HA-Hosts per NTP korrekt läuft – der PowerRouter übernimmt sie aus der Antwort.
 
 ## Bekannte Modellunterschiede
 
@@ -452,7 +455,8 @@ The PowerRouter sends an HTTP POST every minute to `http://logging1.powerrouter.
 2. A **DNS override** in your router redirects `logging1.powerrouter.com` to the IP of the target host – the machine that accepts traffic on port 80. In many setups (e.g. Synology NAS with HA in Docker), this is the same host. If HA runs on a separate device (e.g. Raspberry Pi) with port 80 free, DNS points directly to the HA IP.
 3. If port 80 on the target host is already in use (e.g. by DSM on a Synology), a **reverse proxy** receives the request on port 80 and forwards it to Home Assistant on port 8099.
 4. The integration receives the POST and provides the data as sensors.
-5. **Optional:** Data is additionally forwarded to the real Nedap server so the portal continues to work (as long as it's available).
+5. The integration replies to the PowerRouter exactly like the real server (HTTP `201` with a `next-log-level` directive). The device evaluates this response: only when it receives it does the PowerRouter stay in full logging mode (sending data even at night without PV yield), show "internet connection Ok" on its display, and sync its clock from the HTTP `Date` header.
+6. **Optional:** Data is additionally forwarded to the real Nedap server so the portal continues to work (as long as it's available).
 
 ## Requirements
 
@@ -700,7 +704,7 @@ nslookup logging1.powerrouter.com
 **Test reverse proxy:**
 ```bash
 curl -v -H "Host: logging1.powerrouter.com" http://192.168.178.50/logs.json
-# Should return HTTP 200
+# Should return HTTP 201
 ```
 
 **Port reachable?**
@@ -719,6 +723,8 @@ logger:
 ```
 
 **Sensors show "Unknown":** This is normal – sensors update when the first POST arrives from the PowerRouter (approx. 1–2 minutes).
+
+**PowerRouter shows "not connected" or sends no data at night:** Make sure you are on at least version 1.1.2. Earlier versions replied without the `next-log-level` directive, which made the device drop to a reduced mode and stop logging while there is no PV yield (e.g. overnight). Also check that the clock of your HA host is correct (NTP) – the PowerRouter takes its time from the response.
 
 ## Known model differences
 

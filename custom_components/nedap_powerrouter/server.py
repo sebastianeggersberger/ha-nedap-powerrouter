@@ -10,7 +10,12 @@ from typing import Any, Callable
 import aiohttp
 from aiohttp import web
 
-from .const import FORWARD_HOST_HEADER, FORWARD_PATH, FORWARD_TIMEOUT_SECONDS
+from .const import (
+    FORWARD_HOST_HEADER,
+    FORWARD_PATH,
+    FORWARD_TIMEOUT_SECONDS,
+    NEXT_LOG_LEVEL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +26,10 @@ class PowerRouterHTTPServer:
     Receives JSON POST data from one or more Nedap PowerRouters on /logs.json
     and distributes it via registered callbacks. Each PowerRouter is identified
     by its unique ``powerrouter_id`` in the JSON header.
+
+    Every POST is answered exactly like the real logging server (HTTP 201 with
+    a ``next-log-level`` directive, see :meth:`_ack`) so the PowerRouter keeps
+    full logging, stays "connected", and can sync its clock.
 
     Optionally forwards the raw data to the real Nedap server.
     """
@@ -155,6 +164,23 @@ class PowerRouterHTTPServer:
 
     # ── Request handlers ──────────────────────────────────────────
 
+    def _ack(self) -> web.Response:
+        """Reply exactly like the real logging1.powerrouter.com server.
+
+        Returns HTTP 201 with the compact JSON body
+        ``{"next-log-level":2,"status":"ok"}``. The PowerRouter needs the
+        ``next-log-level`` directive to stay in full logging mode; without
+        it the device drops to a reduced mode and stops logging while the
+        converter is idle (e.g. overnight). aiohttp adds the Date header
+        automatically, which the device uses to sync its clock – so keep
+        the Home Assistant host on NTP.
+        """
+        return web.json_response(
+            {"next-log-level": NEXT_LOG_LEVEL, "status": "ok"},
+            status=201,
+            dumps=lambda obj: json.dumps(obj, separators=(",", ":")),
+        )
+
     async def _forward_to_real_server(self, raw_body: bytes) -> None:
         """Forward the raw POST body to the real logging1.powerrouter.com."""
         if not self._session or not self._forward_ip:
@@ -229,7 +255,7 @@ class PowerRouterHTTPServer:
             if self._forward_enabled and self._session:
                 asyncio.create_task(self._forward_to_real_server(raw_body))
 
-            return web.json_response({"status": "ok"})
+            return self._ack()
 
         except json.JSONDecodeError:
             _LOGGER.warning("Received non-JSON data from PowerRouter")
@@ -247,4 +273,4 @@ class PowerRouterHTTPServer:
             request.path,
             len(body),
         )
-        return web.Response(status=200, text="OK")
+        return self._ack()
