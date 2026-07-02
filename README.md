@@ -127,7 +127,19 @@ Richte einen lokalen DNS-Server ein (Pi-hole oder AdGuard Home – siehe unten) 
 3. Unter **Lokaler DNS-Server** die IP des Pi-hole/AdGuard eintragen
 4. Stelle sicher, dass der PowerRouter seine DNS-Anfragen über die FRITZ!Box auflöst (Standard-Einstellung)
 
-**Option B: DNS auf anderem Netzwerkgerät**
+**Option B: Upstream-DNS der FRITZ!Box umstellen**
+
+Alternativ kann die FRITZ!Box selbst ihre DNS-Anfragen über den lokalen DNS-Server auflösen (danke an @WhatGravity, Issue #2):
+
+1. Öffne `http://fritz.box`
+2. Gehe zu **Internet → Zugangsdaten → DNS-Server**
+3. **Bevorzugter DNSv4-Server**: IP des Pi-hole/AdGuard/dnsmasq eintragen
+
+Damit gilt der Override für alle Geräte, die die FRITZ!Box als DNS nutzen – ohne Änderung der DHCP-Einstellungen.
+
+> **Achtung:** Der PowerRouter cached DNS-Einstellungen mitunter. Falls er nach der Umstellung weiter den alten DNS nutzt, hilft ein Neustart des PowerRouters (oder kurz die Netzwerkverbindung trennen).
+
+**Option C: DNS auf anderem Netzwerkgerät**
 
 Falls du einen eigenen Router/Switch mit DNS-Funktionalität nutzt (z.B. OpenWrt, OPNsense), kannst du den DNS-Eintrag dort setzen.
 
@@ -246,6 +258,38 @@ ports:
 ```
 
 In diesem Fall wird kein separater Reverse Proxy benötigt.
+
+#### Variante D: Dedizierter Raspberry Pi mit dnsmasq + iptables (ohne Pi-hole/AdGuard)
+
+Für Setups **ohne** Pi-hole/AdGuard und ohne die Möglichkeit, Port 80 per Reverse Proxy freizumachen (z.B. QNAP NAS), kann ein kleiner Raspberry Pi (ein Pi Zero 2 W reicht) DNS-Override **und** Port-Weiterleitung übernehmen (danke an @Timsche2210, Issue #6).
+
+**1. dnsmasq auf dem Pi installieren und Override setzen:**
+
+```bash
+sudo apt install dnsmasq
+echo "address=/logging1.powerrouter.com/<PI-IP>" | sudo tee /etc/dnsmasq.d/powerrouter.conf
+sudo systemctl restart dnsmasq
+```
+
+**2. Port 80 auf dem Pi per iptables an Home Assistant (Port 8099) weiterleiten:**
+
+```bash
+# IP-Forwarding dauerhaft aktivieren
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-powerrouter.conf
+sudo sysctl --system
+
+# Eingehenden Port-80-Traffic an HA:8099 umleiten
+sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination <HA-IP>:8099
+sudo iptables -t nat -A POSTROUTING -p tcp -d <HA-IP> --dport 8099 -j MASQUERADE
+
+# Regeln persistent machen
+sudo apt install iptables-persistent
+sudo netfilter-persistent save
+```
+
+**3. Den Pi als DNS-Server für den PowerRouter bekannt machen** – z.B. in der FRITZ!Box als *Lokaler DNS-Server* (Option A) oder als *Upstream-DNS* (Option B) eintragen.
+
+Der PowerRouter löst dann `logging1.powerrouter.com` zur Pi-IP auf, sendet an Port 80 des Pi, und iptables leitet transparent an die Integration weiter.
 
 ### Schritt 3: Integration hinzufügen
 

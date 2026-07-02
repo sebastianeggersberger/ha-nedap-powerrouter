@@ -17,11 +17,12 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, PARAM_MAP
+from .const import DIAGNOSTIC_SENSORS, DOMAIN, PARAM_MAP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,12 +30,81 @@ _LOGGER = logging.getLogger(__name__)
 DEVICE_CLASS_MAP: dict[str, SensorDeviceClass] = {
     "power": SensorDeviceClass.POWER,
     "energy": SensorDeviceClass.ENERGY,
+    "energy_storage": SensorDeviceClass.ENERGY_STORAGE,
     "voltage": SensorDeviceClass.VOLTAGE,
     "current": SensorDeviceClass.CURRENT,
     "temperature": SensorDeviceClass.TEMPERATURE,
     "frequency": SensorDeviceClass.FREQUENCY,
     "battery": SensorDeviceClass.BATTERY,
 }
+
+# Number of consecutive lower readings required before a drop in a
+# total_increasing counter is accepted as a genuine meter reset.
+RESET_CONFIRMATIONS = 3
+
+
+class TotalIncreasingGuard:
+    """Plausibility filter for total_increasing (energy counter) values.
+
+    The PowerRouter occasionally sends a spurious 0 (e.g. right after an
+    internal restart) for lifetime energy counters. Home Assistant treats
+    any drop of a ``total_increasing`` sensor as a meter reset, which
+    corrupts the long-term statistics for the whole day.
+
+    This guard rejects values that are lower than the last accepted value.
+    Only if the lower reading persists (``RESET_CONFIRMATIONS`` consecutive
+    non-decreasing readings below the old level) it is accepted as a real
+    meter reset (e.g. after a hardware replacement).
+    """
+
+    def __init__(self, name: str) -> None:
+        """Initialise the guard."""
+        self._name = name
+        self._pending_value: float | None = None
+        self._pending_count = 0
+
+    def filter(
+        self, new_value: float, last_value: float | None
+    ) -> float | None:
+        """Return the value to publish, or None to discard the reading."""
+        if last_value is None or new_value >= last_value:
+            # Normal case: counter is monotonically increasing.
+            self._pending_value = None
+            self._pending_count = 0
+            return new_value
+
+        # new_value < last_value → suspected outlier or genuine reset.
+        if (
+            self._pending_value is not None
+            and new_value >= self._pending_value
+        ):
+            self._pending_count += 1
+        else:
+            self._pending_count = 1
+        self._pending_value = new_value
+
+        if self._pending_count >= RESET_CONFIRMATIONS:
+            _LOGGER.warning(
+                "%s: value dropped persistently from %s to %s – "
+                "accepting as genuine meter reset",
+                self._name,
+                last_value,
+                new_value,
+            )
+            self._pending_value = None
+            self._pending_count = 0
+            return new_value
+
+        _LOGGER.warning(
+            "%s: discarding implausible value %s (last accepted: %s, "
+            "confirmation %d/%d)",
+            self._name,
+            new_value,
+            last_value,
+            self._pending_count,
+            RESET_CONFIRMATIONS,
+        )
+        return None
 
 STATE_CLASS_MAP: dict[str, SensorStateClass] = {
     "measurement": SensorStateClass.MEASUREMENT,
@@ -164,6 +234,15 @@ class PowerRouterSensor(SensorEntity):
             self._attr_device_class = DEVICE_CLASS_MAP[device_class_str]
         if state_class_str and state_class_str in STATE_CLASS_MAP:
             self._attr_state_class = STATE_CLASS_MAP[state_class_str]
+        if unique_suffix in DIAGNOSTIC_SENSORS:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+        # Guard energy counters against spurious drops (e.g. sporadic 0)
+        self._guard: TotalIncreasingGuard | None = None
+        if state_class_str == "total_increasing":
+            self._guard = TotalIncreasingGuard(
+                f"{powerrouter_id}/{unique_suffix}"
+            )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -200,9 +279,15 @@ class PowerRouterSensor(SensorEntity):
             if module.get("module_id") == self._module_id:
                 raw_value = module.get(self._param_key)
                 if raw_value is not None:
-                    self._attr_native_value = round(
-                        raw_value / self._divisor, 3
-                    )
+                    value = round(raw_value / self._divisor, 3)
+                    if self._guard is not None:
+                        filtered = self._guard.filter(
+                            value, self._attr_native_value
+                        )
+                        if filtered is None:
+                            break  # implausible outlier → discard
+                        value = filtered
+                    self._attr_native_value = value
                     self.async_write_ha_state()
                 break
 
@@ -228,6 +313,7 @@ class GridImportSensor(SensorEntity):
         self._powerrouter_id = powerrouter_id
         self._attr_unique_id = f"nedap_pr_{powerrouter_id}_grid_import"
         self._attr_native_value: float | None = None
+        self._guard = TotalIncreasingGuard(f"{powerrouter_id}/grid_import")
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -258,8 +344,12 @@ class GridImportSensor(SensorEntity):
             if module.get("module_id") == 16:
                 raw = module.get("param_5")
                 if raw is not None:
-                    self._attr_native_value = round(raw / 1000, 3)
-                    self.async_write_ha_state()
+                    value = self._guard.filter(
+                        round(raw / 1000, 3), self._attr_native_value
+                    )
+                    if value is not None:
+                        self._attr_native_value = value
+                        self.async_write_ha_state()
                 break
 
 
@@ -284,6 +374,7 @@ class GridExportSensor(SensorEntity):
         self._powerrouter_id = powerrouter_id
         self._attr_unique_id = f"nedap_pr_{powerrouter_id}_grid_export"
         self._attr_native_value: float | None = None
+        self._guard = TotalIncreasingGuard(f"{powerrouter_id}/grid_export")
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -314,6 +405,10 @@ class GridExportSensor(SensorEntity):
             if module.get("module_id") == 16:
                 raw = module.get("param_4")
                 if raw is not None:
-                    self._attr_native_value = round(raw / 1000, 3)
-                    self.async_write_ha_state()
+                    value = self._guard.filter(
+                        round(raw / 1000, 3), self._attr_native_value
+                    )
+                    if value is not None:
+                        self._attr_native_value = value
+                        self.async_write_ha_state()
                 break
